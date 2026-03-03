@@ -339,22 +339,32 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
 
         if needed_rows > available_rows:
             extra = needed_rows - available_rows
-            # 합계 행의 병합(A30:K30) 해제 후 삽입
-            from openpyxl.utils import get_column_letter
+            # formula_row 이후 모든 병합 셀 정보 저장 후 해제
+            # (insert_rows가 병합 셀을 제대로 이동시키지 못하는 문제 방지)
+            saved_merges = []
             for mr in list(ws.merged_cells.ranges):
-                if mr.min_row == formula_row:
+                if mr.min_row >= formula_row:
+                    saved_merges.append((
+                        mr.min_row, mr.min_col, mr.max_row, mr.max_col
+                    ))
                     ws.unmerge_cells(str(mr))
             ws.insert_rows(formula_row, extra)
             formula_row += extra
-            # 이동된 합계 행의 불필요 병합 해제
-            for mr in list(ws.merged_cells.ranges):
-                if mr.min_row == formula_row and mr.max_col >= 12:
-                    ws.unmerge_cells(str(mr))
-            # 합계 행 병합 재설정 (A~K만)
-            ws.merge_cells(
-                start_row=formula_row, start_column=1,
-                end_row=formula_row, end_column=11
-            )
+            # 저장했던 병합 셀을 이동된 위치로 복원
+            for min_r, min_c, max_r, max_c in saved_merges:
+                new_min_r = min_r + extra
+                new_max_r = max_r + extra
+                # 합계 행의 경우 A~K만 병합 (L~O는 수식용)
+                if new_min_r == formula_row and max_c >= 12:
+                    ws.merge_cells(
+                        start_row=new_min_r, start_column=1,
+                        end_row=new_max_r, end_column=11
+                    )
+                else:
+                    ws.merge_cells(
+                        start_row=new_min_r, start_column=min_c,
+                        end_row=new_max_r, end_column=max_c
+                    )
         elif needed_rows < available_rows:
             excess = available_rows - needed_rows
             delete_start = DATA_START + needed_rows
