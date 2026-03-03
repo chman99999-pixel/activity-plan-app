@@ -317,6 +317,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
 
+
         # ── 행 수 자동 조정 (시트별 동적 감지) ──
         DATA_START = 9
         # 합계/수식 행을 동적으로 찾기: 행 9부터 스캔하여
@@ -470,6 +471,27 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'days': len(working_days),
             'formula_row': formula_row,
         })
+
+    # 헤더 영역 병합 셀 테두리 보정 (G4 right=medium)
+    # MergedCell은 스타일 정보가 없으므로, F4(주 셀)의 스타일을 복사하고
+    # border만 수정하여 RealCell로 강제 삽입
+    from openpyxl.cell.cell import Cell as RealCell
+    for r in results:
+        ws = wb[r['sheet']]
+        f4 = ws.cell(row=4, column=6)  # F4: 주 셀 (스타일 보유)
+        real_g4 = RealCell(ws, row=4, column=7)
+        real_g4.font = copy(f4.font)
+        real_g4.fill = copy(f4.fill)
+        real_g4.alignment = copy(f4.alignment)
+        real_g4.protection = copy(f4.protection)
+        real_g4.number_format = f4.number_format
+        real_g4.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='medium'),
+            top=Side(style='medium'),
+            bottom=Side(style='thin'),
+        )
+        ws._cells[(4, 7)] = real_g4
 
     # 저장
     buf = io.BytesIO()
