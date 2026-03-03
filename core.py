@@ -316,11 +316,26 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
 
-        # ── 행 수 자동 조정 ──
+        # ── 행 수 자동 조정 (시트별 동적 감지) ──
         DATA_START = 9
-        available_rows = 21  # 기본 템플릿: 행 9~29
+        # 합계/수식 행을 동적으로 찾기: 행 9부터 스캔하여
+        # A열에 "합계"가 있거나 L열에 SUM 수식이 있는 행을 찾는다
+        formula_row = None
+        for scan_row in range(DATA_START, ws.max_row + 1):
+            cell_a = ws.cell(row=scan_row, column=1)
+            cell_l = ws.cell(row=scan_row, column=12)
+            a_val = cell_a.value
+            l_val = cell_l.value if not isinstance(cell_l, MergedCell) else None
+            if a_val and '합계' in str(a_val):
+                formula_row = scan_row
+                break
+            if l_val and isinstance(l_val, str) and '=SUM' in l_val.upper():
+                formula_row = scan_row
+                break
+        if formula_row is None:
+            formula_row = DATA_START + 21  # fallback
+        available_rows = formula_row - DATA_START
         needed_rows = len(working_days)
-        formula_row = DATA_START + available_rows  # 30 (원래)
 
         if needed_rows > available_rows:
             extra = needed_rows - available_rows
