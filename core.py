@@ -30,36 +30,33 @@ def parse_calendar(xls_bytes: bytes):
     """
     wb = xlrd.open_workbook(file_contents=xls_bytes)
     sheet = wb.sheet_by_index(0)
-    sheet_name = sheet.name
 
-    # 월 추출
-    month = None
-    for ch in sheet_name:
-        if ch.isdigit():
-            if month is None:
-                month = int(ch)
-            else:
-                month = month * 10 + int(ch)
-    if month and month > 12:
-        month = month % 100
-
-    # 연도 추출 시도
+    # 셀 내용에서 연도/월 추출 (예: "2026년 3월 주간활동 계획서")
     year = None
-    for row in range(min(3, sheet.nrows)):
+    month = None
+    for row_idx in range(min(5, sheet.nrows)):
         for col in range(sheet.ncols):
-            val = str(sheet.cell(row, col).value)
-            if '20' in val:
-                for word in val.split():
-                    cleaned = ''.join(c for c in word if c.isdigit())
-                    if len(cleaned) == 4 and cleaned.startswith('20'):
-                        year = int(cleaned)
-                        break
-            if year:
+            val = str(sheet.cell(row_idx, col).value).strip()
+            if not val:
+                continue
+            m = re.search(r'(\d{4})\s*년\s*(\d{1,2})\s*월', val)
+            if m:
+                year = int(m.group(1))
+                month = int(m.group(2))
                 break
-        if year:
+        if year and month:
             break
+
     if not year:
         year = date.today().year
+    if not month:
+        # fallback: 시트명에서 숫자 추출
+        digits = re.findall(r'\d+', sheet.name)
+        for d in digits:
+            n = int(d)
+            if 1 <= n <= 12:
+                month = n
+                break
 
     activities = {}
     holidays = set()
