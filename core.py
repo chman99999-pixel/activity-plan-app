@@ -13,7 +13,8 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Border, Side, Font
+from copy import copy
 
 
 # ─── 1. 달력 파싱 ───
@@ -337,10 +338,24 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         available_rows = formula_row - DATA_START
         needed_rows = len(working_days)
 
+        # 참조 행(기존 데이터 행)에서 셀 스타일 캡처
+        ref_row = DATA_START  # row 9
+        ref_styles = {}  # col -> (font, border, alignment)
+        for c in range(1, 16):
+            cell = ws.cell(row=ref_row, column=c)
+            if not isinstance(cell, MergedCell):
+                ref_styles[c] = (copy(cell.font), copy(cell.border), copy(cell.alignment))
+
+        # formula_row 이후 행들의 높이 저장
+        saved_row_heights = {}
+        for r in range(formula_row, ws.max_row + 1):
+            h = ws.row_dimensions[r].height
+            if h is not None:
+                saved_row_heights[r] = h
+
         if needed_rows > available_rows:
             extra = needed_rows - available_rows
             # formula_row 이후 모든 병합 셀 정보 저장 후 해제
-            # (insert_rows가 병합 셀을 제대로 이동시키지 못하는 문제 방지)
             saved_merges = []
             for mr in list(ws.merged_cells.ranges):
                 if mr.min_row >= formula_row:
@@ -365,11 +380,40 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                         start_row=new_min_r, start_column=min_c,
                         end_row=new_max_r, end_column=max_c
                     )
+            # 이동된 footer 행 높이 복원
+            for orig_r, h in saved_row_heights.items():
+                ws.row_dimensions[orig_r + extra].height = h
         elif needed_rows < available_rows:
             excess = available_rows - needed_rows
             delete_start = DATA_START + needed_rows
             ws.delete_rows(delete_start, excess)
             formula_row -= excess
+            # 이동된 footer 행 높이 복원
+            for orig_r, h in saved_row_heights.items():
+                ws.row_dimensions[orig_r - excess].height = h
+
+        # ── 데이터 행 셀 병합 설정 (D:F, G:I, J:K) ──
+        last_data_row = DATA_START + needed_rows - 1
+        for r in range(DATA_START, last_data_row + 1):
+            # 기존 병합 해제 후 재설정 (중복 방지)
+            for mr in list(ws.merged_cells.ranges):
+                if mr.min_row == r and mr.max_row == r and mr.min_col in (4, 7, 10):
+                    ws.unmerge_cells(str(mr))
+            ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=6)   # D:F
+            ws.merge_cells(start_row=r, start_column=7, end_row=r, end_column=9)   # G:I
+            ws.merge_cells(start_row=r, start_column=10, end_row=r, end_column=11)  # J:K
+
+        # ── 데이터 행 스타일 적용 (테두리, 폰트, 정렬) ──
+        for r in range(DATA_START, last_data_row + 1):
+            for c in range(1, 16):
+                cell = ws.cell(row=r, column=c)
+                if isinstance(cell, MergedCell):
+                    continue
+                if c in ref_styles:
+                    ref_font, ref_border, ref_align = ref_styles[c]
+                    cell.font = copy(ref_font)
+                    cell.border = copy(ref_border)
+                    cell.alignment = copy(ref_align)
 
         # ── 데이터 입력 ──
         for i, d in enumerate(working_days):
@@ -394,14 +438,12 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             cell_d = ws.cell(row=row, column=4)
             if not isinstance(cell_d, MergedCell):
                 cell_d.value = make_cell_value(full_text)
-                cell_d.alignment = Alignment(wrap_text=True, vertical='center')
 
             ws.row_dimensions[row].height = row_height
 
         ws.column_dimensions['D'].width = 30
 
         # ── 수식 업데이트 (행 수 변경 시 범위 보정) ──
-        last_data_row = DATA_START + needed_rows - 1
         # 합계 행 수식
         for col_letter, col_num in [('L', 12), ('M', 13), ('N', 14), ('O', 15)]:
             ws.cell(row=formula_row, column=col_num).value = (
