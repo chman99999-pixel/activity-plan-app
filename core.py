@@ -266,6 +266,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         has_오전송영 = config.get('오전송영', False)
         오전송영시간 = config.get('오전송영시간', '08:30~09:00 송영')
         has_오후송영 = config.get('오후송영', False)
+        오후송영시간 = config.get('오후송영시간', '16:00~16:30 송영')
         shuttle_count = int(has_오전송영) + int(has_오후송영)
         row_height = 167 + 21 * shuttle_count
 
@@ -285,9 +286,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                 lines.append(오전송영시간)
             lines.extend(day_acts)
             if has_오후송영:
-                # 마지막 활동의 종료 시간을 기준으로 오후 송영 시간 계산
-                end_hour = _get_last_end_hour(day_acts)
-                lines.append(f"{end_hour}:00~{end_hour}:30 송영")
+                lines.append(오후송영시간)
             full_text = '\n'.join(lines)
 
             cell_d = ws.cell(row=row, column=4)

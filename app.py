@@ -183,14 +183,15 @@ def main_app():
         st.caption("오전/오후 송영을 각각 체크하세요. 오후 송영 시간은 활동 종료 시간에 맞춰 자동 계산됩니다.")
 
         # 헤더
-        hcols = st.columns([2, 1, 2, 1])
+        hcols = st.columns([2, 1, 2, 1, 2])
         hcols[0].markdown("**이용자**")
         hcols[1].markdown("**오전송영**")
         hcols[2].markdown("**오전송영시간**")
         hcols[3].markdown("**오후송영**")
+        hcols[4].markdown("**오후송영시간**")
 
         for user in detected_users:
-            cols = st.columns([2, 1, 2, 1])
+            cols = st.columns([2, 1, 2, 1, 2])
             with cols[0]:
                 st.write(user)
             with cols[1]:
@@ -212,6 +213,15 @@ def main_app():
                     "오후송영", value=True, key=f"pm_shuttle_{user}",
                     label_visibility="collapsed",
                 )
+            with cols[4]:
+                if st.session_state.get(f"pm_shuttle_{user}", True):
+                    st.text_input(
+                        "오후송영시간", value="16:00~16:30 송영",
+                        key=f"pm_shuttle_time_{user}",
+                        label_visibility="collapsed",
+                    )
+                else:
+                    st.empty()
     else:
         st.info("계획서 템플릿(.xlsx)을 업로드하면 이용자별 송영 설정이 표시됩니다.")
 
@@ -260,10 +270,12 @@ def main_app():
             has_am = st.session_state.get(f"am_shuttle_{user}", False)
             am_time = st.session_state.get(f"am_shuttle_time_{user}", "08:30~09:00 송영")
             has_pm = st.session_state.get(f"pm_shuttle_{user}", False)
+            pm_time = st.session_state.get(f"pm_shuttle_time_{user}", "16:00~16:30 송영")
             user_config[user] = {
                 "오전송영": has_am,
                 "오전송영시간": am_time,
                 "오후송영": has_pm,
+                "오후송영시간": pm_time,
             }
 
         progress.progress(0.3, text="활동계획서 입력 중...")
