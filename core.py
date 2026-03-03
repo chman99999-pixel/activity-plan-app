@@ -147,8 +147,9 @@ def detect_users(xlsx_bytes: bytes) -> list[str]:
     wb = load_workbook(io.BytesIO(xlsx_bytes), read_only=True)
     users = []
     for sn in wb.sheetnames:
-        # 시트명에서 한글 이름 추출 (예: "26.03월 계획서-유정빈" → "유정빈")
-        m = re.search(r'-([가-힣]{2,4})$', sn.strip())
+        # 시트명 끝에서 한글 이름(2~3자) 추출
+        # 예: "26.03월 계획서-유정빈", "활동계획서 유정빈", "유정빈" 등
+        m = re.search(r'([가-힣]{2,3})\s*$', sn.strip())
         if m:
             users.append(m.group(1))
     wb.close()
