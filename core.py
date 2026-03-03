@@ -472,13 +472,15 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'formula_row': formula_row,
         })
 
-    # 헤더 영역 병합 셀 테두리 보정 (G4 right=medium)
-    # MergedCell은 스타일 정보가 없으므로, F4(주 셀)의 스타일을 복사하고
-    # border만 수정하여 RealCell로 강제 삽입
+    # 헤더 영역 병합 셀 테두리 보정
+    # openpyxl이 병합 셀(MergedCell)의 스타일을 저장 시 잃어버리는 버그 보정
+    # 원본 G4는 right=medium이지만, load→save만 해도 right=thin으로 바뀜
+    # RealCell로 교체하여 원본 테두리 복원
     from openpyxl.cell.cell import Cell as RealCell
     for r in results:
         ws = wb[r['sheet']]
-        f4 = ws.cell(row=4, column=6)  # F4: 주 셀 (스타일 보유)
+        f4 = ws.cell(row=4, column=6)  # F4 (anchor cell, 수정하지 않음)
+        # G4: RealCell로 교체하여 원본 스타일 복원
         real_g4 = RealCell(ws, row=4, column=7)
         real_g4.font = copy(f4.font)
         real_g4.fill = copy(f4.fill)
