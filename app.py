@@ -181,6 +181,15 @@ def main_app():
     if detected_users:
         st.write("**이용자별 설정**")
 
+        # 헤더
+        hcols = st.columns([1.2, 1.5, 0.6, 0.6, 2, 0.6, 0.6, 2])
+        hcols[0].markdown("**이용자**")
+        hcols[1].markdown("**수급시간**")
+        hcols[3].markdown("**오전송영**")
+        hcols[4].markdown("**오전송영시간**")
+        hcols[6].markdown("**오후송영**")
+        hcols[7].markdown("**오후송영시간**")
+
         for user in detected_users:
             cols = st.columns([1.2, 1.5, 0.6, 0.6, 2, 0.6, 0.6, 2])
             # [이름, 수급시간, 공백, 오전체크, 오전시간, 공백, 오후체크, 오후시간]
