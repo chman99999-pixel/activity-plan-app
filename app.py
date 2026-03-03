@@ -239,9 +239,13 @@ def main_app():
     # ══════════════════════════════════════════════════════
     st.subheader("③ 검증 및 처리")
 
-    ready = bool(cal_file and tpl_file and provider and st.session_state.get("cal_summary"))
+    has_users = bool(st.session_state.get("detected_users"))
+    ready = bool(cal_file and tpl_file and provider and st.session_state.get("cal_summary") and has_users)
     if not ready:
-        st.warning("달력 파일, 계획서 템플릿, 담임 이름을 모두 입력해야 처리할 수 있습니다.")
+        if cal_file and tpl_file and provider and not has_users:
+            st.error("시트명에서 이용자 이름을 감지하지 못했습니다. 시트명 끝이 '-이름' 형식이어야 합니다. (예: '03월 활동계획서-홍길동')")
+        elif not (cal_file and tpl_file and provider):
+            st.warning("달력 파일, 계획서 템플릿, 담임 이름을 모두 입력해야 처리할 수 있습니다.")
 
     # 활동일 수 vs 엑셀 행 수 안내
     if ready and tpl_file and st.session_state.get("cal_summary"):
