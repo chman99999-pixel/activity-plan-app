@@ -190,7 +190,28 @@ def get_font_info(xlsx_bytes: bytes):
     return font_name, font_size
 
 
-# ─── 5. 오후 송영 시간 계산 ───
+# ─── 5. 전달 마지막 평일 계산 ───
+
+def _last_weekday_prev_month(year: int, month: int) -> date:
+    """해당 월의 전달 마지막 평일을 반환한다.
+    예: 2026년 3월 → 2026년 2월의 마지막 평일
+    """
+    # 전달 계산
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+
+    # 전달 마지막 날부터 거슬러 올라가며 평일 찾기
+    import calendar
+    last_day = calendar.monthrange(prev_year, prev_month)[1]
+    d = date(prev_year, prev_month, last_day)
+    while d.weekday() >= 5:  # 토(5), 일(6)
+        d = d.replace(day=d.day - 1)
+    return d
+
+
+# ─── 6. 오후 송영 시간 계산 ───
 
 def _get_last_end_hour(day_activities: list[str]) -> int:
     """하루 활동 목록에서 마지막 활동의 종료 시간(시)을 반환한다.
@@ -267,8 +288,30 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         오전송영시간 = config.get('오전송영시간', '08:30~09:00 송영')
         has_오후송영 = config.get('오후송영', False)
         오후송영시간 = config.get('오후송영시간', '16:00~16:30 송영')
+        수급시간 = config.get('수급시간', 132)
         shuttle_count = int(has_오전송영) + int(has_오후송영)
         row_height = 167 + 21 * shuttle_count
+
+        # ── 헤더 영역 입력 ──
+        # (2,4) 작성자, (2,8) 작성일자
+        prev_weekday = _last_weekday_prev_month(year, month)
+        dow_kr = dow_names_kr[prev_weekday.weekday()]
+        date_str = f"{prev_weekday.year}.{prev_weekday.month:02d}.{prev_weekday.day:02d}({dow_kr})"
+        ws.cell(row=2, column=4).value = provider
+        ws.cell(row=2, column=8).value = date_str
+
+        # (3,4) 수급자(성명), (3,8) 담당 제공인력
+        ws.cell(row=3, column=4).value = user_name
+        ws.cell(row=3, column=8).value = provider
+
+        # (4,4) 수급시간: ■/□ 표시
+        if 수급시간 == 176:
+            ws.cell(row=4, column=4).value = '□ 월 132시간 \n■ 월 176시간 '
+        else:
+            ws.cell(row=4, column=4).value = '■ 월 132시간 \n□ 월 176시간 '
+
+        # (6,4) 총 계획시간
+        ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
 
         for i, d in enumerate(working_days):
             row = 9 + i
@@ -314,6 +357,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'sheet': sheet_name,
             '오전송영': has_오전송영,
             '오후송영': has_오후송영,
+            '수급시간': 수급시간,
             'days': len(working_days)
         })
 

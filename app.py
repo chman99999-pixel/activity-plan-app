@@ -179,27 +179,34 @@ def main_app():
     detected_users = st.session_state.get("detected_users", [])
 
     if detected_users:
-        st.write("**이용자별 송영 설정**")
-        st.caption("오전/오후 송영을 각각 체크하세요. 오후 송영 시간은 활동 종료 시간에 맞춰 자동 계산됩니다.")
+        st.write("**이용자별 설정**")
 
         # 헤더
-        hcols = st.columns([2, 1, 2, 1, 2])
+        hcols = st.columns([2, 1.5, 1, 2, 1, 2])
         hcols[0].markdown("**이용자**")
-        hcols[1].markdown("**오전송영**")
-        hcols[2].markdown("**오전송영시간**")
-        hcols[3].markdown("**오후송영**")
-        hcols[4].markdown("**오후송영시간**")
+        hcols[1].markdown("**수급시간**")
+        hcols[2].markdown("**오전송영**")
+        hcols[3].markdown("**오전송영시간**")
+        hcols[4].markdown("**오후송영**")
+        hcols[5].markdown("**오후송영시간**")
 
         for user in detected_users:
-            cols = st.columns([2, 1, 2, 1, 2])
+            cols = st.columns([2, 1.5, 1, 2, 1, 2])
             with cols[0]:
                 st.write(user)
             with cols[1]:
+                st.selectbox(
+                    "수급시간", options=[132, 176],
+                    format_func=lambda x: f"{x}시간({'기본형' if x == 132 else '확장형'})",
+                    key=f"service_hours_{user}",
+                    label_visibility="collapsed",
+                )
+            with cols[2]:
                 st.checkbox(
                     "오전송영", value=True, key=f"am_shuttle_{user}",
                     label_visibility="collapsed",
                 )
-            with cols[2]:
+            with cols[3]:
                 if st.session_state.get(f"am_shuttle_{user}", True):
                     st.text_input(
                         "오전송영시간", value="08:30~09:00 송영",
@@ -208,12 +215,12 @@ def main_app():
                     )
                 else:
                     st.empty()
-            with cols[3]:
+            with cols[4]:
                 st.checkbox(
                     "오후송영", value=True, key=f"pm_shuttle_{user}",
                     label_visibility="collapsed",
                 )
-            with cols[4]:
+            with cols[5]:
                 if st.session_state.get(f"pm_shuttle_{user}", True):
                     st.text_input(
                         "오후송영시간", value="16:00~16:30 송영",
@@ -223,7 +230,7 @@ def main_app():
                 else:
                     st.empty()
     else:
-        st.info("계획서 템플릿(.xlsx)을 업로드하면 이용자별 송영 설정이 표시됩니다.")
+        st.info("계획서 템플릿(.xlsx)을 업로드하면 이용자별 설정이 표시됩니다.")
 
     st.divider()
 
@@ -271,11 +278,13 @@ def main_app():
             am_time = st.session_state.get(f"am_shuttle_time_{user}", "08:30~09:00 송영")
             has_pm = st.session_state.get(f"pm_shuttle_{user}", False)
             pm_time = st.session_state.get(f"pm_shuttle_time_{user}", "16:00~16:30 송영")
+            svc_hours = st.session_state.get(f"service_hours_{user}", 132)
             user_config[user] = {
                 "오전송영": has_am,
                 "오전송영시간": am_time,
                 "오후송영": has_pm,
                 "오후송영시간": pm_time,
+                "수급시간": svc_hours,
             }
 
         progress.progress(0.3, text="활동계획서 입력 중...")
@@ -321,7 +330,7 @@ def main_app():
             if ur["오후송영"]:
                 shuttle_parts.append("오후송영")
             shuttle_text = ", ".join(shuttle_parts) if shuttle_parts else "송영 없음"
-            st.write(f"  - {ur['name']}: {shuttle_text}, {ur['days']}일 입력")
+            st.write(f"  - {ur['name']}: {ur['수급시간']}시간, {shuttle_text}, {ur['days']}일 입력")
 
         if r["holidays"]:
             st.info(f"공휴일 제외: {sorted(r['holidays'])}")
