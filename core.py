@@ -78,7 +78,7 @@ def parse_calendar(xls_bytes: bytes):
                 if any('시간' in v for v in vals):
                     continue
                 has_date = False
-                for c in range(2, 7):
+                for c in range(sheet.ncols):
                     v = str(sheet.cell(dr, c).value).strip()
                     nums = ''.join(ch for ch in v.split('일')[0].split('(')[0] if ch.isdigit())
                     if nums and 1 <= int(nums) <= 31:
@@ -94,7 +94,7 @@ def parse_calendar(xls_bytes: bytes):
                 continue
 
             dates_in_week = {}
-            for c in range(2, 7):
+            for c in range(sheet.ncols):
                 v = str(sheet.cell(date_row, c).value).strip()
                 if not v:
                     continue
