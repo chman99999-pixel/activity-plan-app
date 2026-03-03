@@ -387,8 +387,34 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         elif needed_rows < available_rows:
             excess = available_rows - needed_rows
             delete_start = DATA_START + needed_rows
+            # 삭제될 데이터 행의 병합 해제 (openpyxl이 자동 정리하지 않음)
+            for mr in list(ws.merged_cells.ranges):
+                if delete_start <= mr.min_row < formula_row:
+                    ws.unmerge_cells(str(mr))
+            # footer 병합 저장 후 해제 (delete_rows가 위치를 갱신하지 않으므로)
+            saved_merges = []
+            for mr in list(ws.merged_cells.ranges):
+                if mr.min_row >= formula_row:
+                    saved_merges.append((
+                        mr.min_row, mr.min_col, mr.max_row, mr.max_col
+                    ))
+                    ws.unmerge_cells(str(mr))
             ws.delete_rows(delete_start, excess)
             formula_row -= excess
+            # footer 병합을 이동된 위치로 복원
+            for min_r, min_c, max_r, max_c in saved_merges:
+                new_min_r = min_r - excess
+                new_max_r = max_r - excess
+                if new_min_r == formula_row and max_c >= 12:
+                    ws.merge_cells(
+                        start_row=new_min_r, start_column=1,
+                        end_row=new_max_r, end_column=11
+                    )
+                else:
+                    ws.merge_cells(
+                        start_row=new_min_r, start_column=min_c,
+                        end_row=new_max_r, end_column=max_c
+                    )
             # 이동된 footer 행 높이 복원
             for orig_r, h in saved_row_heights.items():
                 ws.row_dimensions[orig_r - excess].height = h
