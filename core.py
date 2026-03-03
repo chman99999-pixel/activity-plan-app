@@ -190,7 +190,22 @@ def get_font_info(xlsx_bytes: bytes):
     return font_name, font_size
 
 
-# ─── 5. 활동계획 입력 ───
+# ─── 5. 오후 송영 시간 계산 ───
+
+def _get_last_end_hour(day_activities: list[str]) -> int:
+    """하루 활동 목록에서 마지막 활동의 종료 시간(시)을 반환한다.
+    예: '15:00~16:00 활동' → 16, '16:00~17:00 활동' → 17
+    기본값: 16
+    """
+    last_hour = 16
+    for act in day_activities:
+        m = re.match(r'\d{2}:\d{2}~(\d{2}):\d{2}', act)
+        if m:
+            last_hour = int(m.group(1))
+    return last_hour
+
+
+# ─── 6. 활동계획 입력 ───
 
 def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                 user_config: dict, provider: str, month: int, year: int):
@@ -248,9 +263,11 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             continue
 
         config = user_config[user_name]
-        has_송영 = config.get('송영', False)
-        송영시간 = config.get('송영시간', '08:30~09:00 송영')
-        row_height = 188 if has_송영 else 167
+        has_오전송영 = config.get('오전송영', False)
+        오전송영시간 = config.get('오전송영시간', '08:30~09:00 송영')
+        has_오후송영 = config.get('오후송영', False)
+        shuttle_count = int(has_오전송영) + int(has_오후송영)
+        row_height = 167 + 21 * shuttle_count
 
         for i, d in enumerate(working_days):
             row = 9 + i
@@ -262,10 +279,15 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                     cell.value = val
 
             # D: 활동계획
+            day_acts = activities.get(d, [])
             lines = []
-            if has_송영:
-                lines.append(송영시간)
-            lines.extend(activities.get(d, []))
+            if has_오전송영:
+                lines.append(오전송영시간)
+            lines.extend(day_acts)
+            if has_오후송영:
+                # 마지막 활동의 종료 시간을 기준으로 오후 송영 시간 계산
+                end_hour = _get_last_end_hour(day_acts)
+                lines.append(f"{end_hour}:00~{end_hour}:30 송영")
             full_text = '\n'.join(lines)
 
             cell_d = ws.cell(row=row, column=4)
@@ -291,7 +313,8 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         results.append({
             'name': user_name,
             'sheet': sheet_name,
-            '송영': has_송영,
+            '오전송영': has_오전송영,
+            '오후송영': has_오후송영,
             'days': len(working_days)
         })
 
