@@ -182,7 +182,7 @@ def main_app():
         st.write("**이용자별 설정**")
 
         # 헤더
-        hcols = st.columns([2, 1.5, 1, 2, 1, 2])
+        hcols = st.columns([1.5, 1.5, 0.7, 2, 0.7, 2])
         hcols[0].markdown("**이용자**")
         hcols[1].markdown("**수급시간**")
         hcols[2].markdown("**오전송영**")
@@ -191,7 +191,7 @@ def main_app():
         hcols[5].markdown("**오후송영시간**")
 
         for user in detected_users:
-            cols = st.columns([2, 1.5, 1, 2, 1, 2])
+            cols = st.columns([1.5, 1.5, 0.7, 2, 0.7, 2])
             with cols[0]:
                 st.write(user)
             with cols[1]:
@@ -339,13 +339,23 @@ def main_app():
         if not r["formulas_ok"]:
             st.warning("수식 보존 확인이 필요합니다. 엑셀에서 L~O열 30행의 SUM 수식을 확인해주세요.")
 
+        st.markdown("---")
+        st.markdown(
+            f"""<div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 10px;
+            padding: 20px; text-align: center; margin: 10px 0;">
+            <p style="font-size: 1.1em; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">
+            파일이 준비되었습니다</p>
+            <p style="font-size: 0.95em; color: #555; margin: 0;">
+            {r['filename']}</p></div>""",
+            unsafe_allow_html=True,
+        )
         st.download_button(
-            label=f"다운로드: {r['filename']}",
+            label="다운로드",
             data=r["bytes"],
             file_name=r["filename"],
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
-            type="secondary",
+            type="primary",
         )
 
     st.divider()
