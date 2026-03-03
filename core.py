@@ -392,18 +392,16 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             for orig_r, h in saved_row_heights.items():
                 ws.row_dimensions[orig_r - excess].height = h
 
-        # ── 데이터 행 셀 병합 설정 (D:F, G:I, J:K) ──
+        # ── 데이터 행: 기존 병합 해제 → 스타일 적용 → 재병합 ──
+        # 병합 상태에서는 E,F,H,I,K 셀에 테두리를 설정할 수 없으므로
+        # 먼저 전부 해제하고, 모든 셀에 스타일 적용 후, 다시 병합한다.
         last_data_row = DATA_START + needed_rows - 1
         for r in range(DATA_START, last_data_row + 1):
-            # 기존 병합 해제 후 재설정 (중복 방지)
             for mr in list(ws.merged_cells.ranges):
                 if mr.min_row == r and mr.max_row == r and mr.min_col in (4, 7, 10):
                     ws.unmerge_cells(str(mr))
-            ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=6)   # D:F
-            ws.merge_cells(start_row=r, start_column=7, end_row=r, end_column=9)   # G:I
-            ws.merge_cells(start_row=r, start_column=10, end_row=r, end_column=11)  # J:K
 
-        # ── 데이터 행 스타일 적용 (테두리, 폰트, 정렬) ──
+        # 스타일 적용 (병합 해제 상태이므로 모든 셀에 접근 가능)
         for r in range(DATA_START, last_data_row + 1):
             for c in range(1, 16):
                 cell = ws.cell(row=r, column=c)
@@ -414,6 +412,12 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                     cell.font = copy(ref_font)
                     cell.border = copy(ref_border)
                     cell.alignment = copy(ref_align)
+
+        # 병합 재설정
+        for r in range(DATA_START, last_data_row + 1):
+            ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=6)   # D:F
+            ws.merge_cells(start_row=r, start_column=7, end_row=r, end_column=9)   # G:I
+            ws.merge_cells(start_row=r, start_column=10, end_row=r, end_column=11)  # J:K
 
         # ── 데이터 입력 ──
         for i, d in enumerate(working_days):
