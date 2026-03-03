@@ -243,8 +243,7 @@ def main_app():
     if not ready:
         st.warning("달력 파일, 계획서 템플릿, 담임 이름을 모두 입력해야 처리할 수 있습니다.")
 
-    # 활동일 수 vs 엑셀 행 수 검증
-    row_mismatch = False
+    # 활동일 수 vs 엑셀 행 수 안내
     if ready and tpl_file and st.session_state.get("cal_summary"):
         cal_info = st.session_state["cal_summary"]
         num_working_days = len(cal_info["working_days"])
@@ -254,19 +253,18 @@ def main_app():
 
         if num_working_days > available_rows:
             diff = num_working_days - available_rows
-            st.error(
-                f"{cal_info['month']}월은 {num_working_days}일의 활동일수가 있는데, "
-                f"이 엑셀 파일은 {diff}일이 모자랍니다. "
-                f"엑셀 파일의 행을 더 추가해서 다시 넣어주세요."
-            )
-            row_mismatch = True
-        elif num_working_days < available_rows:
             st.info(
                 f"{cal_info['month']}월 활동일 {num_working_days}일, "
-                f"엑셀 행 {available_rows}개 — 남는 행은 자동으로 비워집니다."
+                f"엑셀 행 {available_rows}개 — {diff}행을 자동으로 추가합니다."
+            )
+        elif num_working_days < available_rows:
+            excess = available_rows - num_working_days
+            st.info(
+                f"{cal_info['month']}월 활동일 {num_working_days}일, "
+                f"엑셀 행 {available_rows}개 — 불필요한 {excess}행을 자동으로 삭제합니다."
             )
 
-    if st.button("처리하기", disabled=not ready or row_mismatch, type="primary",
+    if st.button("처리하기", disabled=not ready, type="primary",
                  use_container_width=True):
         cal_info = st.session_state["cal_summary"]
         progress = st.progress(0, text="달력 데이터 준비 중...")

@@ -316,8 +316,39 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
 
+        # ── 행 수 자동 조정 ──
+        DATA_START = 9
+        available_rows = 21  # 기본 템플릿: 행 9~29
+        needed_rows = len(working_days)
+        formula_row = DATA_START + available_rows  # 30 (원래)
+
+        if needed_rows > available_rows:
+            extra = needed_rows - available_rows
+            # 합계 행의 병합(A30:K30) 해제 후 삽입
+            from openpyxl.utils import get_column_letter
+            for mr in list(ws.merged_cells.ranges):
+                if mr.min_row == formula_row:
+                    ws.unmerge_cells(str(mr))
+            ws.insert_rows(formula_row, extra)
+            formula_row += extra
+            # 이동된 합계 행의 불필요 병합 해제
+            for mr in list(ws.merged_cells.ranges):
+                if mr.min_row == formula_row and mr.max_col >= 12:
+                    ws.unmerge_cells(str(mr))
+            # 합계 행 병합 재설정 (A~K만)
+            ws.merge_cells(
+                start_row=formula_row, start_column=1,
+                end_row=formula_row, end_column=11
+            )
+        elif needed_rows < available_rows:
+            excess = available_rows - needed_rows
+            delete_start = DATA_START + needed_rows
+            ws.delete_rows(delete_start, excess)
+            formula_row -= excess
+
+        # ── 데이터 입력 ──
         for i, d in enumerate(working_days):
-            row = 9 + i
+            row = DATA_START + i
 
             # A: 날짜, B: 요일, C: 제공자
             for col, val in [(1, d), (2, dow_map.get(d, '')), (3, provider)]:
@@ -342,18 +373,22 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
 
             ws.row_dimensions[row].height = row_height
 
-        # 남은 행 비우기
-        for row in range(9 + len(working_days), 30):
-            for col in range(1, 16):
-                cell = ws.cell(row=row, column=col)
-                if isinstance(cell, MergedCell):
-                    continue
-                val = cell.value
-                if val and isinstance(val, str) and val.startswith('='):
-                    continue  # 수식 보존
-                cell.value = None
-
         ws.column_dimensions['D'].width = 30
+
+        # ── 수식 업데이트 (행 수 변경 시 범위 보정) ──
+        last_data_row = DATA_START + needed_rows - 1
+        # 합계 행 수식
+        for col_letter, col_num in [('L', 12), ('M', 13), ('N', 14), ('O', 15)]:
+            ws.cell(row=formula_row, column=col_num).value = (
+                f'=SUM({col_letter}{DATA_START}:{col_letter}{last_data_row})'
+            )
+        # 헤더 수식 (데이터 범위 참조)
+        ws.cell(row=4, column=10).value = f'=SUM(L{DATA_START}:L{last_data_row})'
+        ws.cell(row=5, column=10).value = f'=SUM(M{DATA_START}:M{last_data_row})'
+        ws.cell(row=6, column=10).value = f'=SUM(N{DATA_START}:N{last_data_row})'
+        ws.cell(row=7, column=10).value = f'=SUM(O{DATA_START}:O{last_data_row})'
+        # 총 계획시간 수식 (합계 행 참조)
+        ws.cell(row=5, column=6).value = f'=SUM(L{formula_row}:O{formula_row})'
 
         results.append({
             'name': user_name,
@@ -361,7 +396,8 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             '오전송영': has_오전송영,
             '오후송영': has_오후송영,
             '수급시간': 수급시간,
-            'days': len(working_days)
+            'days': len(working_days),
+            'formula_row': formula_row,
         })
 
     # 저장
@@ -369,13 +405,14 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
     wb.save(buf)
     output_bytes = buf.getvalue()
 
-    # 수식 보존 검증
+    # 수식 보존 검증 (동적 formula_row 사용)
     wb_check = load_workbook(io.BytesIO(output_bytes))
     formulas_ok = True
-    for sn in wb_check.sheetnames:
-        ws = wb_check[sn]
+    for r in results:
+        ws = wb_check[r['sheet']]
+        fr = r['formula_row']
         for col in [12, 13, 14, 15]:
-            val = ws.cell(row=30, column=col).value
+            val = ws.cell(row=fr, column=col).value
             if val and isinstance(val, str) and val.startswith('='):
                 continue
             else:
