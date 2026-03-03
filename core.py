@@ -293,6 +293,9 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         row_height = 167 + 21 * shuttle_count
 
         # ── 헤더 영역 입력 ──
+        # (1,1) 제목: 월 자동 입력
+        ws.cell(row=1, column=1).value = f'주간활동서비스 월별 활동계획서({month:02d}월)'
+
         # (2,4) 작성자, (2,8) 작성일자
         prev_weekday = _last_weekday_prev_month(year, month)
         dow_kr = dow_names_kr[prev_weekday.weekday()]
