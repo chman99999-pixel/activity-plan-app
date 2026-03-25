@@ -137,7 +137,7 @@ def main_app():
                 with tip_col:
                     st.markdown(
                         "<p style='font-size:12.5px; color:#555; margin:6px 0 0 0; line-height:1.5;'>"
-                        "💡 샘플 파일을 다운받은 후,<br>"
+                        "📌 샘플 파일을 다운받은 후,<br>"
                         "엑셀 <b>시트명의 이용자 이름</b>만 수정하여 업로드하세요.</p>",
                         unsafe_allow_html=True,
                     )
