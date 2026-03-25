@@ -125,10 +125,27 @@ def main_app():
             help="주간활동계획서 달력 파일을 업로드하세요.",
         )
     with col_tpl:
+        tpl_label_col, tpl_btn_col = st.columns([2, 1])
+        with tpl_label_col:
+            st.markdown("**계획서 템플릿 (.xlsx)**")
+        with tpl_btn_col:
+            sample_path = "26.02월 활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
+            try:
+                with open(sample_path, "rb") as f:
+                    st.download_button(
+                        label="📥 샘플 다운로드",
+                        data=f.read(),
+                        file_name=sample_path,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+            except FileNotFoundError:
+                pass
         tpl_file = st.file_uploader(
             "계획서 템플릿 (.xlsx)",
             type=["xlsx"],
             help="이용자별 시트가 포함된 활동계획서 엑셀 파일을 업로드하세요.",
+            label_visibility="collapsed",
         )
 
     # 달력 파일 업로드 시 파싱 요약
