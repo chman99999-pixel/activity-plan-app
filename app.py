@@ -175,7 +175,7 @@ def main_app():
             st.error(f"달력 파싱 오류: {e}")
             st.session_state["cal_summary"] = None
 
-    # 템플릿 파일 업로드 시 이용자 감지
+    # 템플릿 파일 업로드 시 이용자 감지 + 제공인력 이름 파싱
     if tpl_file:
         tpl_bytes = tpl_file.read()
         tpl_file.seek(0)
@@ -185,6 +185,16 @@ def main_app():
             st.info(f"이용자 자동 감지: {', '.join(users)}")
         else:
             st.warning("시트명에서 이용자 이름을 감지하지 못했습니다. 시트명 끝에 이용자 이름(한글 2~3자)이 포함되어야 합니다.")
+        # 첫 번째 시트 (2,4) 작성자 셀에서 제공인력 이름 읽기
+        try:
+            import openpyxl, io
+            wb = openpyxl.load_workbook(io.BytesIO(tpl_bytes), data_only=True)
+            ws0 = wb.worksheets[0]
+            cell_val = ws0.cell(row=2, column=4).value
+            if cell_val and str(cell_val).strip():
+                st.session_state["provider_name"] = str(cell_val).strip()
+        except Exception:
+            pass
 
     st.divider()
 
@@ -195,8 +205,8 @@ def main_app():
 
     provider = st.text_input(
         "담임(제공인력) 이름",
-        value="천만석",
-        placeholder="예: 천만석",
+        value=st.session_state.get("provider_name", ""),
+        placeholder="예: 홍길동",
     )
 
     detected_users = st.session_state.get("detected_users", [])
