@@ -3,6 +3,8 @@ app.py — 월별 활동계획서 자동입력 Streamlit 앱
 달력형 계획서(.xls) → 이용자별 엑셀 활동계획서(.xlsx) 자동 입력
 """
 
+import os
+import re
 import time
 
 import streamlit as st
@@ -130,7 +132,7 @@ def main_app():
             type=["xlsx"],
             help="이용자별 시트가 포함된 활동계획서 엑셀 파일을 업로드하세요.",
         )
-        sample_path = "26.02월 활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
+        sample_path = "활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
         try:
             with open(sample_path, "rb") as f:
                 tip_col, dl_col = st.columns([3, 2])
@@ -327,9 +329,16 @@ def main_app():
             )
 
             progress.progress(1.0, text="완료!")
+            # 결과물 파일명: YY.MM월 활동계획서 000반-이용자1 이용자2 이용자3.xlsx
+            base = os.path.splitext(tpl_file.name)[0]
+            base = re.sub(r'-?샘플$', '', base).strip()
+            base = re.sub(r'^\d{2}\.\d{2}월\s*', '', base).strip()
+            yy = cal_info["year"] % 100
+            output_filename = f"{yy:02d}.{cal_info['month']:02d}월 {base}.xlsx"
+
             st.session_state["results"] = {
                 "bytes": output_bytes,
-                "filename": tpl_file.name,
+                "filename": output_filename,
                 "user_results": results,
                 "working_days": working_days,
                 "formulas_ok": formulas_ok,
