@@ -122,7 +122,7 @@ def main_app():
     col_cal, col_tpl = st.columns(2)
     with col_cal:
         cal_file = st.file_uploader(
-            "달력 파일 (.xls)",
+            "달력 계획서 파일 (.xls)",
             type=["xls"],
             help="주간활동계획서 달력 파일을 업로드하세요.",
         )
