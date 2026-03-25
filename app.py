@@ -133,7 +133,14 @@ def main_app():
         sample_path = "26.02월 활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
         try:
             with open(sample_path, "rb") as f:
-                _, dl_col = st.columns([3, 2])
+                tip_col, dl_col = st.columns([3, 2])
+                with tip_col:
+                    st.markdown(
+                        "<p style='font-size:12.5px; color:#555; margin:6px 0 0 0; line-height:1.5;'>"
+                        "💡 샘플 파일을 다운받은 후,<br>"
+                        "엑셀 <b>시트명의 이용자 이름</b>만 수정하여 업로드하세요.</p>",
+                        unsafe_allow_html=True,
+                    )
                 with dl_col:
                     st.download_button(
                         label="📥 샘플 다운로드",
