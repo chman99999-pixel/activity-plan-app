@@ -339,21 +339,16 @@ def main_app():
             )
 
             progress.progress(1.0, text="완료!")
-            # 결과물 파일명: YY.MM월 활동계획서 000반-이용자1 이용자2 이용자3.xlsx
-            tpl_base = os.path.splitext(tpl_file.name)[0]
-            tpl_base = re.sub(r'-?샘플$', '', tpl_base).strip()
-            # 반 이름 추출 (예: "000반", "A반")
-            class_match = re.search(r'(\S+반)', tpl_base)
-            class_name = class_match.group(1) if class_match else ""
+            # 결과물 파일명: YY.MM월 활동계획서 제공인력반-이용자1 이용자2 이용자3.xlsx
             yy = cal_info["year"] % 100
             users_str = " ".join(detected_users)
+            class_name = f"{provider}반" if provider else ""
             if class_name and users_str:
                 output_filename = f"{yy:02d}.{cal_info['month']:02d}월 활동계획서 {class_name}-{users_str}.xlsx"
             elif users_str:
                 output_filename = f"{yy:02d}.{cal_info['month']:02d}월 활동계획서-{users_str}.xlsx"
             else:
-                tpl_base = re.sub(r'^\d{2}\.\d{2}월\s*', '', tpl_base).strip()
-                output_filename = f"{yy:02d}.{cal_info['month']:02d}월 {tpl_base}.xlsx"
+                output_filename = f"{yy:02d}.{cal_info['month']:02d}월 활동계획서.xlsx"
 
             st.session_state["results"] = {
                 "bytes": output_bytes,
