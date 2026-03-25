@@ -128,7 +128,7 @@ def main_app():
         )
     with col_tpl:
         tpl_file = st.file_uploader(
-            "계획서 템플릿 (.xlsx)",
+            "활동계획서 엑셀 파일 (.xlsx)",
             type=["xlsx"],
             help="이용자별 시트가 포함된 활동계획서 엑셀 파일을 업로드하세요.",
         )
