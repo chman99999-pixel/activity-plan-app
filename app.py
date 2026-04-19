@@ -9,6 +9,7 @@ import time
 
 import streamlit as st
 from core import parse_calendar, detect_users, count_available_rows, fill_sheets
+from hub_auth import hub_gate, render_session_bar
 
 # ── 페이지 설정 ────────────────────────────────────────────
 st.set_page_config(
@@ -416,59 +417,9 @@ def main_app():
 # ══════════════════════════════════════════════════════════
 # 접근 코드 게이트
 # ══════════════════════════════════════════════════════════
-def _access_gate():
-    """접근 코드 인증 화면. 인증 완료 시 True 반환."""
-    if "access_granted" not in st.session_state:
-        st.session_state["access_granted"] = False
-
-    if st.session_state["access_granted"]:
-        if "ac" in st.query_params:
-            del st.query_params["ac"]
-        return True
-
-    # URL ?ac= 파라미터 자동 인증
-    try:
-        secret_code = st.secrets["ACCESS_CODE"]
-    except Exception:
-        secret_code = "2026"
-
-    ac_param = st.query_params.get("ac", "")
-    if ac_param and ac_param == secret_code:
-        st.session_state["access_granted"] = True
-        st.rerun()
-
-    # 수동 입력 화면
-    st.markdown("""
-    <style>
-    [data-testid="stHeader"], [data-testid="stToolbar"],
-    [data-testid="stDecoration"], [data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 1.4, 1])
-    with col2:
-        st.markdown("## 월별 활동계획서 자동입력")
-        st.caption("접근 코드를 입력해주세요.")
-        st.markdown("")
-        code_input = st.text_input(
-            "접근 코드",
-            type="password",
-            placeholder="접근 코드를 입력하세요",
-            label_visibility="collapsed",
-        )
-        if st.button("입장하기", type="primary", use_container_width=True):
-            if code_input == secret_code:
-                st.session_state["access_granted"] = True
-                st.rerun()
-            else:
-                st.error("접근 코드가 올바르지 않습니다.")
-    return False
-
-
 # ══════════════════════════════════════════════════════════
-# 진입점
+# 진입점 — 복서방 허브 JWT 인증
 # ══════════════════════════════════════════════════════════
-if _access_gate():
+if hub_gate():
+    render_session_bar()
     main_app()
