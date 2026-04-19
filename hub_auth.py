@@ -89,6 +89,12 @@ def hub_gate() -> bool:
     if st.session_state.get("hub_auth"):
         auth = st.session_state["hub_auth"]
         if auth.get("exp", 0) > time.time():
+            # URL에 token이 아직 남아 있으면 조용히 제거
+            if "token" in st.query_params:
+                try:
+                    del st.query_params["token"]
+                except Exception:
+                    pass
             return True
         # 만료
         st.session_state.pop("hub_auth", None)
@@ -104,8 +110,7 @@ def hub_gate() -> bool:
         _render_denied("no-token")
         return False
 
-    # 검증 먼저 → 세션 저장 → URL 삭제 순서로 처리
-    # (del st.query_params가 rerun을 유발하므로 세션 저장이 먼저여야 함)
+    # JWT 검증
     payload, err = _verify_token(token)
     if err == "expired":
         _render_denied("expired")
@@ -114,6 +119,7 @@ def hub_gate() -> bool:
         _render_denied(err)
         return False
 
+    # 세션에 저장 후 명시적 rerun
     st.session_state["hub_auth"] = {
         "user_id": payload.get("sub"),
         "name": payload.get("name"),
@@ -122,13 +128,8 @@ def hub_gate() -> bool:
         "plan_end": payload.get("plan_end"),
         "exp": payload.get("exp"),
     }
-
-    # 세션 저장 후 URL 에서 token 제거 → rerun 발생 → 위의 hub_auth 분기에서 True 반환
-    try:
-        del st.query_params["token"]
-    except Exception:
-        pass
-    return False  # rerun 후 재검사됨
+    st.rerun()
+    return False  # rerun 후 위의 hub_auth 분기에서 True 반환
 
 
 def render_session_bar():
