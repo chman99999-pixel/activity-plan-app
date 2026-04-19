@@ -104,12 +104,8 @@ def hub_gate() -> bool:
         _render_denied("no-token")
         return False
 
-    # URL 에서 token 즉시 제거 (브라우저 히스토리/공유 방지)
-    try:
-        del st.query_params["token"]
-    except Exception:
-        pass
-
+    # 검증 먼저 → 세션 저장 → URL 삭제 순서로 처리
+    # (del st.query_params가 rerun을 유발하므로 세션 저장이 먼저여야 함)
     payload, err = _verify_token(token)
     if err == "expired":
         _render_denied("expired")
@@ -126,7 +122,12 @@ def hub_gate() -> bool:
         "plan_end": payload.get("plan_end"),
         "exp": payload.get("exp"),
     }
-    st.rerun()
+
+    # 세션 저장 후 URL 에서 token 제거 → rerun 발생 → 위의 hub_auth 분기에서 True 반환
+    try:
+        del st.query_params["token"]
+    except Exception:
+        pass
     return False  # rerun 후 재검사됨
 
 
