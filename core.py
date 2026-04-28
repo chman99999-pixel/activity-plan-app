@@ -8,6 +8,7 @@ import io
 import re
 from datetime import date
 
+import holidays as kr_holidays
 import xlrd
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
@@ -92,6 +93,13 @@ def parse_calendar(xls_bytes: bytes):
 
     activities = {}
     holidays = set()
+
+    # 한국 법정 공휴일 자동 추가 (어린이날, 광복절 등)
+    kr = kr_holidays.KR(years=year)
+    for h_date in kr:
+        if h_date.month == month:
+            holidays.add(h_date.day)
+
     time_slots = [
         '09:00~10:00', '10:00~11:00', '11:00~12:00',
         '12:00~13:00', '13:00~14:00', '14:00~15:00', '15:00~16:00'
