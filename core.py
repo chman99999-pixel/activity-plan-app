@@ -100,11 +100,6 @@ def parse_calendar(xls_bytes: bytes):
         if h_date.month == month:
             holidays.add(h_date.day)
 
-    time_slots = [
-        '09:00~10:00', '10:00~11:00', '11:00~12:00',
-        '12:00~13:00', '13:00~14:00', '14:00~15:00', '15:00~16:00', '16:00~17:00'
-    ]
-
     row = 0
     while row < nrows:
         row_vals = [str(_cell_value(sheet, row, c, is_xlsx)).strip() for c in range(ncols)]
@@ -132,6 +127,15 @@ def parse_calendar(xls_bytes: bytes):
             if date_row is None:
                 row += 1
                 continue
+
+            # A열에서 시간대 슬롯 동적 감지 (HH:MM~HH:MM 패턴)
+            time_slots = []
+            for r in range(time_start_row, nrows):
+                a_val = str(_cell_value(sheet, r, 0, is_xlsx)).strip()
+                if re.match(r'\d{2}:\d{2}~\d{2}:\d{2}', a_val):
+                    time_slots.append(a_val)
+                else:
+                    break
 
             dates_in_week = {}
             for c in range(ncols):
