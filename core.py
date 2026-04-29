@@ -337,7 +337,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         수급시간 = config.get('수급시간', 132)
         shuttle_count = int(has_오전송영) + int(has_오후송영)
         num_slots = len(next(iter(activities.values()), []))
-        row_height = (num_slots + shuttle_count) * 27 + 15
+        row_height = (num_slots + shuttle_count) * 24 + 10
 
         # ── 헤더 영역 입력 ──
         # (1,1) 제목: 월 자동 입력
