@@ -216,17 +216,18 @@ def main_app():
         st.write("**이용자별 설정**")
 
         # 헤더
-        hcols = st.columns([1.2, 1.5, 0.6, 0.6, 2, 0.6, 0.6, 2])
+        hcols = st.columns([1.2, 1.5, 1.2, 0.6, 0.6, 2, 0.6, 0.6, 2])
         hcols[0].markdown("**이용자**")
         hcols[1].markdown("**수급시간**")
-        hcols[3].markdown("**오전송영**")
-        hcols[4].markdown("**오전송영시간**")
-        hcols[6].markdown("**오후송영**")
-        hcols[7].markdown("**오후송영시간**")
+        hcols[2].markdown("**하원시간**")
+        hcols[4].markdown("**오전송영**")
+        hcols[5].markdown("**오전송영시간**")
+        hcols[7].markdown("**오후송영**")
+        hcols[8].markdown("**오후송영시간**")
 
         for user in detected_users:
-            cols = st.columns([1.2, 1.5, 0.6, 0.6, 2, 0.6, 0.6, 2])
-            # [이름, 수급시간, 공백, 오전체크, 오전시간, 공백, 오후체크, 오후시간]
+            cols = st.columns([1.2, 1.5, 1.2, 0.6, 0.6, 2, 0.6, 0.6, 2])
+            # [이름, 수급시간, 하원시간, 공백, 오전체크, 오전시간, 공백, 오후체크, 오후시간]
             with cols[0]:
                 st.markdown(f"<div style='padding-top:8px'>{user}</div>", unsafe_allow_html=True)
             with cols[1]:
@@ -236,12 +237,20 @@ def main_app():
                     key=f"service_hours_{user}",
                     label_visibility="collapsed",
                 )
-            with cols[3]:
+            with cols[2]:
+                st.selectbox(
+                    "하원시간", options=[15, 16, 17, 18],
+                    index=2,
+                    format_func=lambda x: f"오후 {x}시",
+                    key=f"departure_{user}",
+                    label_visibility="collapsed",
+                )
+            with cols[4]:
                 st.checkbox(
                     "오전송영", value=True, key=f"am_shuttle_{user}",
                     label_visibility="collapsed",
                 )
-            with cols[4]:
+            with cols[5]:
                 if st.session_state.get(f"am_shuttle_{user}", True):
                     st.text_input(
                         "오전송영시간", value="08:30~09:00 송영",
@@ -250,12 +259,12 @@ def main_app():
                     )
                 else:
                     st.empty()
-            with cols[6]:
+            with cols[7]:
                 st.checkbox(
                     "오후송영", value=True, key=f"pm_shuttle_{user}",
                     label_visibility="collapsed",
                 )
-            with cols[7]:
+            with cols[8]:
                 if st.session_state.get(f"pm_shuttle_{user}", True):
                     st.text_input(
                         "오후송영시간", value="16:00~16:30 송영",
@@ -316,12 +325,14 @@ def main_app():
             has_pm = st.session_state.get(f"pm_shuttle_{user}", False)
             pm_time = st.session_state.get(f"pm_shuttle_time_{user}", "16:00~16:30 송영")
             svc_hours = st.session_state.get(f"service_hours_{user}", 132)
+            departure = st.session_state.get(f"departure_{user}", 17)
             user_config[user] = {
                 "오전송영": has_am,
                 "오전송영시간": am_time,
                 "오후송영": has_pm,
                 "오후송영시간": pm_time,
                 "수급시간": svc_hours,
+                "하원시간": departure,
             }
 
         progress.progress(0.3, text="활동계획서 입력 중...")

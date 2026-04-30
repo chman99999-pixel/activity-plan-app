@@ -335,8 +335,14 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         has_오후송영 = config.get('오후송영', False)
         오후송영시간 = config.get('오후송영시간', '16:00~16:30 송영')
         수급시간 = config.get('수급시간', 132)
+        하원시간 = config.get('하원시간', 18)
         shuttle_count = int(has_오전송영) + int(has_오후송영)
-        num_slots = len(next(iter(activities.values()), []))
+        sample_acts = next(iter(activities.values()), [])
+        num_slots = sum(
+            1 for act in sample_acts
+            if not re.match(r'\d{2}:\d{2}~(\d{2}):\d{2}', act)
+            or int(re.match(r'\d{2}:\d{2}~(\d{2}):\d{2}', act).group(1)) <= 하원시간
+        )
         row_height = (num_slots + shuttle_count) * 21 + 12
 
         # ── 헤더 영역 입력 ──
@@ -502,8 +508,12 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                 if not isinstance(cell, MergedCell):
                     cell.value = val
 
-            # D: 활동계획
-            day_acts = activities.get(d, [])
+            # D: 활동계획 (하원시간까지만 필터링)
+            day_acts = [
+                act for act in activities.get(d, [])
+                if not re.match(r'\d{2}:\d{2}~(\d{2}):\d{2}', act)
+                or int(re.match(r'\d{2}:\d{2}~(\d{2}):\d{2}', act).group(1)) <= 하원시간
+            ]
             lines = []
             if has_오전송영:
                 lines.append(오전송영시간)
