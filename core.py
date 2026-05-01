@@ -17,6 +17,33 @@ from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Border, Side, Font
 from copy import copy
 
+# ── openpyxl 호환성 패치 ─────────────────────────────────────────────
+# 한셀·Google Sheets 등 비표준 xlsx에서 style_id가 스타일 테이블 범위를
+# 벗어날 때 발생하는 IndexError를 방지한다. (기본 스타일 0으로 대체)
+try:
+    from openpyxl.worksheet._reader import WorksheetReader as _WSReader
+    from openpyxl.cell.cell import Cell as _Cell
+
+    def _safe_bind_cells(self):
+        styles = self.ws.parent._cell_styles
+        for idx, row in self.parser.parse():
+            for cell in row:
+                sid = cell.get('style_id', 0)
+                if sid >= len(styles):
+                    sid = 0
+                style = styles[sid]
+                c = _Cell(self.ws, row=cell['row'], column=cell['column'], style_array=style)
+                c._value = cell['value']
+                c.data_type = cell['data_type']
+                self.ws._cells[(cell['row'], cell['column'])] = c
+        if self.ws._cells:
+            self.ws._current_row = self.ws.max_row
+
+    _WSReader.bind_cells = _safe_bind_cells
+except Exception:
+    pass
+# ────────────────────────────────────────────────────────────────────
+
 
 # ─── 1. 달력 파싱 ───
 
