@@ -131,6 +131,12 @@ def parse_calendar(xls_bytes: bytes):
     while row < nrows:
         row_vals = [str(_cell_value(sheet, row, c, is_xlsx)).strip() for c in range(ncols)]
         is_week_header = any('주차' in v for v in row_vals)
+        # '주차' 글자가 삭제된 경우 대비: '시간'+'요일'이 같은 행에 있으면 주차 블록으로 인식
+        if not is_week_header:
+            is_week_header = (
+                any(v == '시간' for v in row_vals) and
+                any('요일' in v for v in row_vals)
+            )
 
         if is_week_header:
             date_row = None
