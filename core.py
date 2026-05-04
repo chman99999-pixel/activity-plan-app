@@ -9,7 +9,7 @@ import re
 from datetime import date
 
 import holidays as kr_holidays
-import xlrd
+from python_calamine import CalamineWorkbook
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
@@ -47,58 +47,41 @@ except Exception:
 
 # ─── 1. 달력 파싱 ───
 
-def _cell_value(sheet, row, col, is_xlsx=False):
-    """xlrd(0-indexed) / openpyxl(1-indexed) 공통 셀 값 접근 헬퍼."""
-    if is_xlsx:
-        val = sheet.cell(row=row + 1, column=col + 1).value
-    else:
-        val = sheet.cell(row, col).value
-    return val
-
-
-def _sheet_dims(sheet, is_xlsx=False):
-    """시트의 (행 수, 열 수)를 반환한다."""
-    if is_xlsx:
-        return sheet.max_row or 0, sheet.max_column or 0
-    return sheet.nrows, sheet.ncols
-
-
-def _sheet_name(sheet, is_xlsx=False):
-    """시트 이름을 반환한다."""
-    if is_xlsx:
-        return sheet.title
-    return sheet.name
-
-
 def parse_calendar(xls_bytes: bytes):
     """달력 .xls/.xlsx에서 날짜별 활동 내용을 추출한다.
+    calamine(Rust 기반)으로 파싱 — 한셀·비표준 xlsx 포함 모든 형식 지원.
 
     Returns:
         activities: {날짜(int): [시간대별 문자열, ...]}
-        holidays: set of 날짜(int) — 대체공휴일 등
+        holidays: set of 날짜(int) — 공휴일
         month: int — 해당 월
         year: int — 해당 연도
     """
-    # 파일 형식 감지: ZIP(PK) 헤더면 xlsx, 아니면 xls
-    is_xlsx = xls_bytes[:2] == b'PK'
+    wb = CalamineWorkbook.from_filelike(io.BytesIO(xls_bytes))
+    sheet_name = wb.sheet_names[0]
+    sheet = wb.get_sheet_by_name(sheet_name)
+    data = sheet.to_python()          # List[List[Any]] — 0-indexed 2D 배열
 
-    if is_xlsx:
-        wb = load_workbook(io.BytesIO(xls_bytes), read_only=True, data_only=True)
-        sheet = wb[wb.sheetnames[0]]
-    else:
-        wb = xlrd.open_workbook(file_contents=xls_bytes)
-        sheet = wb.sheet_by_index(0)
+    nrows = len(data)
+    ncols = max((len(row) for row in data), default=0)
 
-    nrows, ncols = _sheet_dims(sheet, is_xlsx)
+    def cell_str(r, c):
+        """(0-based) 셀 값을 문자열로 반환. 범위 초과 시 빈 문자열."""
+        if r < 0 or r >= nrows:
+            return ''
+        row_data = data[r]
+        if c < 0 or c >= len(row_data):
+            return ''
+        v = row_data[c]
+        # calamine이 숫자/bool/datetime을 반환할 수 있으므로 str로 통일
+        return str(v).strip() if v is not None else ''
 
-    # 셀 내용에서 연도/월 추출 (예: "2026년 3월 주간활동 계획서")
+    # ── 연도/월 추출 ──
     year = None
     month = None
     for row_idx in range(min(5, nrows)):
         for col in range(ncols):
-            val = str(_cell_value(sheet, row_idx, col, is_xlsx)).strip()
-            if not val:
-                continue
+            val = cell_str(row_idx, col)
             m = re.search(r'(\d{4})\s*년\s*(\d{1,2})\s*월', val)
             if m:
                 year = int(m.group(1))
@@ -110,9 +93,7 @@ def parse_calendar(xls_bytes: bytes):
     if not year:
         year = date.today().year
     if not month:
-        # fallback: 시트명에서 숫자 추출
-        digits = re.findall(r'\d+', _sheet_name(sheet, is_xlsx))
-        for d in digits:
+        for d in re.findall(r'\d+', sheet_name):
             n = int(d)
             if 1 <= n <= 12:
                 month = n
@@ -121,17 +102,19 @@ def parse_calendar(xls_bytes: bytes):
     activities = {}
     holidays = set()
 
-    # 한국 법정 공휴일 자동 추가 (어린이날, 광복절 등)
+    # ── 한국 법정 공휴일 ──
     kr = kr_holidays.KR(years=year)
     for h_date in kr:
         if h_date.month == month:
             holidays.add(h_date.day)
 
+    # ── 주차 블록 파싱 ──
     row = 0
     while row < nrows:
-        row_vals = [str(_cell_value(sheet, row, c, is_xlsx)).strip() for c in range(ncols)]
+        row_vals = [cell_str(row, c) for c in range(max(ncols, len(data[row])))]
+
         is_week_header = any('주차' in v for v in row_vals)
-        # '주차' 글자가 삭제된 경우 대비: '시간'+'요일'이 같은 행에 있으면 주차 블록으로 인식
+        # '주차' 삭제된 경우: '시간'+'요일' 조합으로 대체 감지
         if not is_week_header:
             is_week_header = (
                 any(v == '시간' for v in row_vals) and
@@ -142,16 +125,15 @@ def parse_calendar(xls_bytes: bytes):
             date_row = None
             time_start_row = None
             for dr in range(row + 1, min(row + 4, nrows)):
-                vals = [str(_cell_value(sheet, dr, c, is_xlsx)).strip() for c in range(ncols)]
+                vals = [cell_str(dr, c) for c in range(ncols)]
                 if any('시간' in v for v in vals):
                     continue
-                has_date = False
-                for c in range(ncols):
-                    v = str(_cell_value(sheet, dr, c, is_xlsx)).strip()
-                    nums = ''.join(ch for ch in v.split('일')[0].split('(')[0] if ch.isdigit())
-                    if nums and 1 <= int(nums) <= 31:
-                        has_date = True
-                        break
+                has_date = any(
+                    (lambda nums: nums and 1 <= int(nums) <= 31)(
+                        ''.join(ch for ch in cell_str(dr, c).split('일')[0].split('(')[0] if ch.isdigit())
+                    )
+                    for c in range(ncols)
+                )
                 if has_date:
                     date_row = dr
                     time_start_row = dr + 1
@@ -161,20 +143,19 @@ def parse_calendar(xls_bytes: bytes):
                 row += 1
                 continue
 
-            # A열에서 시간대 슬롯 동적 감지 (HH:MM~HH:MM 패턴)
+            # A열에서 시간대 슬롯 동적 감지
             time_slots = []
             for r in range(time_start_row, nrows):
-                a_val = str(_cell_value(sheet, r, 0, is_xlsx)).strip()
+                a_val = cell_str(r, 0)
                 if re.match(r'\d{2}:\d{2}~\d{2}:\d{2}', a_val):
                     time_slots.append(a_val)
                 else:
                     break
 
+            # 날짜 열 파악
             dates_in_week = {}
             for c in range(ncols):
-                v = str(_cell_value(sheet, date_row, c, is_xlsx)).strip()
-                if not v:
-                    continue
+                v = cell_str(date_row, c)
                 nums = ''.join(ch for ch in v.split('일')[0].split('(')[0] if ch.isdigit())
                 if nums and 1 <= int(nums) <= 31:
                     d = int(nums)
@@ -182,10 +163,11 @@ def parse_calendar(xls_bytes: bytes):
                     if '대체공휴일' in v or '공휴일' in v:
                         holidays.add(d)
 
+            # 날짜별 활동 추출
             for c, d in dates_in_week.items():
                 if d in holidays:
                     continue
-                first_val = str(_cell_value(sheet, time_start_row, c, is_xlsx)).strip() if time_start_row < nrows else ''
+                first_val = cell_str(time_start_row, c)
                 if '대체공휴일' in first_val or '공휴일' in first_val:
                     holidays.add(d)
                     continue
@@ -195,14 +177,15 @@ def parse_calendar(xls_bytes: bytes):
                     r = time_start_row + slot_idx
                     if r >= nrows:
                         break
-                    val = str(_cell_value(sheet, r, c, is_xlsx)).strip()
+                    val = cell_str(r, c)
                     if val and val != 'None':
                         day_activities.append(f"{slot_time} {val}")
                     else:
-                        if slot_time == '12:00~13:00':
-                            day_activities.append(f"{slot_time} 점심식사 및 위생지원")
-                        else:
-                            day_activities.append(f"{slot_time} ")
+                        day_activities.append(
+                            f"{slot_time} 점심식사 및 위생지원"
+                            if slot_time == '12:00~13:00'
+                            else f"{slot_time} "
+                        )
 
                 if day_activities:
                     activities[d] = day_activities
@@ -210,9 +193,6 @@ def parse_calendar(xls_bytes: bytes):
             row = time_start_row + len(time_slots)
         else:
             row += 1
-
-    if is_xlsx:
-        wb.close()
 
     return activities, holidays, month, year
 
