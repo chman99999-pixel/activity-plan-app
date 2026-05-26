@@ -108,6 +108,15 @@ def parse_calendar(xls_bytes: bytes):
         if h_date.month == month:
             holidays.add(h_date.day)
 
+    # ── 임시공휴일 (정부 지정, holidays 라이브러리 미반영분) ──
+    # 새 임시공휴일 생기면 여기에 추가하세요.
+    EXTRA_HOLIDAYS = {
+        (2026, 6, 3): '지방선거일',
+    }
+    for (y, m, d), _name in EXTRA_HOLIDAYS.items():
+        if y == year and m == month:
+            holidays.add(d)
+
     # ── 주차 블록 파싱 ──
     row = 0
     while row < nrows:
