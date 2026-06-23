@@ -588,9 +588,10 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'formula_row': formula_row,
         })
 
-    # ── 우측 외곽 굵은선 보정 ──
-    # O열이 병합(N:O, A:O)의 비앵커 MergedCell인 행에서는 엑셀이 우측 외곽선을
-    # 렌더링하지 못한다. 표 밖 P열의 좌측 테두리에 medium 선을 그어 외곽선을 보장.
+    # ── 좌·우 외곽 굵은선 보정 ──
+    # 우측: O열이 병합(N:O, A:O)의 비앵커 MergedCell인 행에서 엑셀이 우측 외곽선을
+    #       렌더링하지 못하므로, 표 밖 P열의 좌측 테두리에 medium 선을 긋는다.
+    # 좌측: 원본 일부 행(A4~A8)의 A열 좌측이 thin이므로 medium으로 통일한다.
     for r_info in results:
         ws = wb[r_info['sheet']]
         for row in range(1, ws.max_row + 1):
@@ -600,6 +601,10 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                 b = p.border
                 p.border = Border(left=Side(style='medium'),
                                   right=b.right, top=b.top, bottom=b.bottom)
+                a = ws.cell(row, 1)
+                ab = a.border
+                a.border = Border(left=Side(style='medium'), right=ab.right,
+                                  top=ab.top, bottom=ab.bottom)
 
     # 저장
     buf = io.BytesIO()
