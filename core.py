@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Border, Side
 from copy import copy
 
 # ── openpyxl 호환성 패치 ─────────────────────────────────────────────
@@ -587,6 +587,19 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'days': len(working_days),
             'formula_row': formula_row,
         })
+
+    # ── 우측 외곽 굵은선 보정 ──
+    # O열이 병합(N:O, A:O)의 비앵커 MergedCell인 행에서는 엑셀이 우측 외곽선을
+    # 렌더링하지 못한다. 표 밖 P열의 좌측 테두리에 medium 선을 그어 외곽선을 보장.
+    for r_info in results:
+        ws = wb[r_info['sheet']]
+        for row in range(1, ws.max_row + 1):
+            o_side = ws.cell(row, 15).border.right
+            if o_side and o_side.style:  # 표 범위 내의 행
+                p = ws.cell(row, 16)
+                b = p.border
+                p.border = Border(left=Side(style='medium'),
+                                  right=b.right, top=b.top, bottom=b.bottom)
 
     # 저장
     buf = io.BytesIO()
