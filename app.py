@@ -133,7 +133,7 @@ def main_app():
             type=["xlsx"],
             help="이용자별 시트가 포함된 활동계획서 엑셀 파일을 업로드하세요.",
         )
-        sample_path = "활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
+        sample_path = "2026활동계획서 000반-이용자1 이용자2 이용자3-샘플.xlsx"
         try:
             with open(sample_path, "rb") as f:
                 tip_col, dl_col = st.columns([3, 2])

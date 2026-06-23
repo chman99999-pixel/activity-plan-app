@@ -367,10 +367,13 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         row_height = (num_slots + shuttle_count) * 21 + 12
 
         # ── 헤더 영역 입력 (신 양식 좌표) ──
-        # (1,1) 제목: 월 자동 입력 + 활동계획서 체크
-        ws.cell(row=1, column=1).value = (
-            f'주간활동서비스 ( {month:02d} )월   ■활동계획서   □활동기록지'
-        )
+        # (1,1) 제목: 월 숫자만 끼워넣어 원본 양식 특징(체크표시·폰트) 보존
+        title_cell = ws.cell(row=1, column=1)
+        orig_title = str(title_cell.value or '')
+        if '월' in orig_title and '(' in orig_title:
+            title_cell.value = re.sub(r'\(\s*\)', f'( {month:02d} )', orig_title, count=1)
+        else:
+            title_cell.value = f'주간활동서비스 ( {month:02d} )월   ☑활동계획서   □활동기록지'
 
         # (2,4) 작성자, (2,10) 작성일자
         prev_weekday = _last_weekday_prev_month(year, month)
@@ -385,11 +388,11 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (4,4) 서비스 제공자(제공인력)
         ws.cell(row=4, column=4).value = provider
 
-        # (5,4) 수급시간: ■/□ 표시
+        # (5,4) 수급시간: ☑/□ 표시 (양식 체크 스타일에 맞춤)
         if 수급시간 == 176:
-            ws.cell(row=5, column=4).value = '□ 월 132시간    ■ 월 176시간 '
+            ws.cell(row=5, column=4).value = '□ 월 132시간    ☑ 월 176시간 '
         else:
-            ws.cell(row=5, column=4).value = '■ 월 132시간    □ 월 176시간 '
+            ws.cell(row=5, column=4).value = '☑ 월 132시간    □ 월 176시간 '
 
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
@@ -552,8 +555,6 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
                 cell_d.value = make_cell_value(full_text)
 
             ws.row_dimensions[row].height = row_height
-
-        ws.column_dimensions['D'].width = 30
 
         # ── 수식 업데이트 (행 수 변경 시 범위 보정) ──
         # 합계 행 수식 (L33~O33 = 데이터 범위 합계)
