@@ -373,9 +373,11 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         title_cell = ws.cell(row=1, column=1)
         orig_title = str(title_cell.value or '')
         if '월' in orig_title and '(' in orig_title:
-            title_cell.value = re.sub(r'\(\s*\)', f'( {month:02d} )', orig_title, count=1)
+            t = re.sub(r'\(\s*\)', f'( {month:02d} )', orig_title, count=1)
+            t = re.sub(r'[☑□](\s*활동계획서)', r'■\1', t)  # 활동계획서 선택표시 ■
+            title_cell.value = t
         else:
-            title_cell.value = f'주간활동서비스 ( {month:02d} )월   ☑활동계획서   □활동기록지'
+            title_cell.value = f'주간활동서비스 ( {month:02d} )월   ■활동계획서   □활동기록지'
 
         # (2,4) 작성자, (2,10) 작성일자
         prev_weekday = _last_weekday_prev_month(year, month)
@@ -390,11 +392,11 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (4,4) 서비스 제공자(제공인력)
         ws.cell(row=4, column=4).value = provider
 
-        # (5,4) 수급시간: ☑/□ 표시 (양식 체크 스타일에 맞춤)
+        # (5,4) 수급시간: ■/□ 표시
         if 수급시간 == 176:
-            ws.cell(row=5, column=4).value = '□ 월 132시간    ☑ 월 176시간 '
+            ws.cell(row=5, column=4).value = '□ 월 132시간    ■ 월 176시간 '
         else:
-            ws.cell(row=5, column=4).value = '☑ 월 132시간    □ 월 176시간 '
+            ws.cell(row=5, column=4).value = '■ 월 132시간    □ 월 176시간 '
 
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
