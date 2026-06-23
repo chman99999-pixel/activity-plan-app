@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
+from openpyxl.styles import Font
 from copy import copy
 
 # ── openpyxl 호환성 패치 ─────────────────────────────────────────────
@@ -429,7 +430,12 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         for c in range(1, 16):
             cell = ws.cell(row=ref_row, column=c)
             if not isinstance(cell, MergedCell):
-                ref_styles[c] = (copy(cell.font), copy(cell.border), copy(cell.alignment))
+                # 원본 예시 폰트가 파란 기울임이므로 검정·정체로 정규화
+                of = cell.font
+                nf = Font(name=of.name, size=of.size, bold=of.bold, italic=False,
+                          color='FF000000', underline=of.underline, strike=of.strike,
+                          vertAlign=of.vertAlign)
+                ref_styles[c] = (nf, copy(cell.border), copy(cell.alignment))
 
         # formula_row 이후 행들의 높이 저장
         saved_row_heights = {}
