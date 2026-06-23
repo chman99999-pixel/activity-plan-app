@@ -305,7 +305,8 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         working_days: 활동일 목록
         formulas_ok: 수식 보존 여부
     """
-    wb = load_workbook(io.BytesIO(template_bytes))
+    # rich_text=True: 송영서비스 라벨 등 부분 폰트(리치텍스트) 보존
+    wb = load_workbook(io.BytesIO(template_bytes), rich_text=True)
 
     font_name, font_size = get_font_info(template_bytes)
     normal_font = InlineFont(rFont=font_name, sz=font_size)
