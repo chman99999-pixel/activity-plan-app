@@ -313,8 +313,9 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
     red_font = InlineFont(rFont=font_name, sz=font_size, color='FFFF0000')
 
     def make_cell_value(text):
+        # 항상 normal_font(검정·정체)로 감싸 원본 셀의 파란 기울임 서식을 덮는다
         if '(협)' not in text:
-            return text
+            return CellRichText(TextBlock(normal_font, text))
         parts = []
         segments = text.split('(협)')
         for i, seg in enumerate(segments):
