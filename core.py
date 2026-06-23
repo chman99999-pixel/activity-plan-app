@@ -14,7 +14,6 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
-from openpyxl.styles import Alignment, Border, Side, Font
 from copy import copy
 
 # ── openpyxl 호환성 패치 ─────────────────────────────────────────────
@@ -226,16 +225,16 @@ def detect_users(xlsx_bytes: bytes) -> list[str]:
 
 def count_available_rows(xlsx_bytes: bytes) -> int:
     """첫 번째 이용자 시트에서 데이터 입력 가능한 행 수를 확인한다.
-    행 9부터 시작, 행 29까지 (30행은 수식)."""
+    신 양식 기준: 행 10부터 시작, 행 32까지 (33행은 합계/수식)."""
     wb = load_workbook(io.BytesIO(xlsx_bytes), read_only=True)
     if not wb.sheetnames:
         wb.close()
         return 0
     ws = wb[wb.sheetnames[0]]
-    # 기본적으로 9~29행 = 21행이 입력 가능
+    # 기본적으로 10~32행 = 23행이 입력 가능
     # 실제 행 수를 세서 반환
     count = 0
-    for row in range(9, 30):  # 행 9~29
+    for row in range(10, 33):  # 행 10~32
         try:
             cell = ws.cell(row=row, column=1)
             count += 1
@@ -248,10 +247,10 @@ def count_available_rows(xlsx_bytes: bytes) -> int:
 # ─── 4. 원본 폰트 정보 확인 ───
 
 def get_font_info(xlsx_bytes: bytes):
-    """원본 xlsx에서 D열 폰트 정보를 확인한다."""
+    """원본 xlsx에서 데이터행 D열(활동계획) 폰트 정보를 확인한다."""
     wb = load_workbook(io.BytesIO(xlsx_bytes))
     ws = wb[wb.sheetnames[0]]
-    cell = ws.cell(row=9, column=4)
+    cell = ws.cell(row=10, column=4)
     font_name = cell.font.name or '맑은 고딕'
     font_size = cell.font.size or 14
     wb.close()
@@ -367,34 +366,38 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         )
         row_height = (num_slots + shuttle_count) * 21 + 12
 
-        # ── 헤더 영역 입력 ──
-        # (1,1) 제목: 월 자동 입력
-        ws.cell(row=1, column=1).value = f'주간활동서비스 월별 활동계획서({month:02d}월)'
+        # ── 헤더 영역 입력 (신 양식 좌표) ──
+        # (1,1) 제목: 월 자동 입력 + 활동계획서 체크
+        ws.cell(row=1, column=1).value = (
+            f'주간활동서비스 ( {month:02d} )월   ■활동계획서   □활동기록지'
+        )
 
-        # (2,4) 작성자, (2,8) 작성일자
+        # (2,4) 작성자, (2,10) 작성일자
         prev_weekday = _last_weekday_prev_month(year, month)
         dow_kr = dow_names_kr[prev_weekday.weekday()]
         date_str = f"{prev_weekday.year}.{prev_weekday.month:02d}.{prev_weekday.day:02d}({dow_kr})"
         ws.cell(row=2, column=4).value = provider
-        ws.cell(row=2, column=8).value = date_str
+        ws.cell(row=2, column=10).value = date_str
 
-        # (3,4) 수급자(성명), (3,8) 담당 제공인력
+        # (3,4) 수급자(성명)
         ws.cell(row=3, column=4).value = user_name
-        ws.cell(row=3, column=8).value = provider
 
-        # (4,4) 수급시간: ■/□ 표시
+        # (4,4) 서비스 제공자(제공인력)
+        ws.cell(row=4, column=4).value = provider
+
+        # (5,4) 수급시간: ■/□ 표시
         if 수급시간 == 176:
-            ws.cell(row=4, column=4).value = '□ 월 132시간 \n■ 월 176시간 '
+            ws.cell(row=5, column=4).value = '□ 월 132시간    ■ 월 176시간 '
         else:
-            ws.cell(row=4, column=4).value = '■ 월 132시간 \n□ 월 176시간 '
+            ws.cell(row=5, column=4).value = '■ 월 132시간    □ 월 176시간 '
 
         # (6,4) 총 계획시간
         ws.cell(row=6, column=4).value = f'월 ( {수급시간} )시간'
 
 
         # ── 행 수 자동 조정 (시트별 동적 감지) ──
-        DATA_START = 9
-        # 합계/수식 행을 동적으로 찾기: 행 9부터 스캔하여
+        DATA_START = 10
+        # 합계/수식 행을 동적으로 찾기: 데이터 시작행부터 스캔하여
         # A열에 "합계"가 있거나 L열에 SUM 수식이 있는 행을 찾는다
         formula_row = None
         for scan_row in range(DATA_START, ws.max_row + 1):
@@ -414,7 +417,7 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         needed_rows = len(working_days)
 
         # 참조 행(기존 데이터 행)에서 셀 스타일 캡처
-        ref_row = DATA_START  # row 9
+        ref_row = DATA_START  # row 10
         ref_styles = {}  # col -> (font, border, alignment)
         for c in range(1, 16):
             cell = ws.cell(row=ref_row, column=c)
@@ -553,18 +556,16 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         ws.column_dimensions['D'].width = 30
 
         # ── 수식 업데이트 (행 수 변경 시 범위 보정) ──
-        # 합계 행 수식
+        # 합계 행 수식 (L33~O33 = 데이터 범위 합계)
         for col_letter, col_num in [('L', 12), ('M', 13), ('N', 14), ('O', 15)]:
             ws.cell(row=formula_row, column=col_num).value = (
                 f'=SUM({col_letter}{DATA_START}:{col_letter}{last_data_row})'
             )
-        # 헤더 수식 (데이터 범위 참조)
-        ws.cell(row=4, column=10).value = f'=SUM(L{DATA_START}:L{last_data_row})'
-        ws.cell(row=5, column=10).value = f'=SUM(M{DATA_START}:M{last_data_row})'
-        ws.cell(row=6, column=10).value = f'=SUM(N{DATA_START}:N{last_data_row})'
-        ws.cell(row=7, column=10).value = f'=SUM(O{DATA_START}:O{last_data_row})'
-        # 총 계획시간 수식 (합계 행 참조)
-        ws.cell(row=5, column=6).value = f'=SUM(L{formula_row}:O{formula_row})'
+        # 프로그램 구분 자동계산 (J4~J7 = 합계 행 참조)
+        ws.cell(row=4, column=10).value = f'=(L{formula_row})'
+        ws.cell(row=5, column=10).value = f'=(M{formula_row})'
+        ws.cell(row=6, column=10).value = f'=(N{formula_row})'
+        ws.cell(row=7, column=10).value = f'=(O{formula_row})'
 
         results.append({
             'name': user_name,
@@ -575,29 +576,6 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
             'days': len(working_days),
             'formula_row': formula_row,
         })
-
-    # 헤더 영역 병합 셀 테두리 보정
-    # openpyxl이 병합 셀(MergedCell)의 스타일을 저장 시 잃어버리는 버그 보정
-    # 원본 G4는 right=medium이지만, load→save만 해도 right=thin으로 바뀜
-    # RealCell로 교체하여 원본 테두리 복원
-    from openpyxl.cell.cell import Cell as RealCell
-    for r in results:
-        ws = wb[r['sheet']]
-        f4 = ws.cell(row=4, column=6)  # F4 (anchor cell, 수정하지 않음)
-        # G4: RealCell로 교체하여 원본 스타일 복원
-        real_g4 = RealCell(ws, row=4, column=7)
-        real_g4.font = copy(f4.font)
-        real_g4.fill = copy(f4.fill)
-        real_g4.alignment = copy(f4.alignment)
-        real_g4.protection = copy(f4.protection)
-        real_g4.number_format = f4.number_format
-        real_g4.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='medium'),
-            top=Side(style='medium'),
-            bottom=Side(style='thin'),
-        )
-        ws._cells[(4, 7)] = real_g4
 
     # 저장
     buf = io.BytesIO()
