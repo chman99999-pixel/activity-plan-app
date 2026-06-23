@@ -309,7 +309,8 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
     # rich_text=True: 송영서비스 라벨 등 부분 폰트(리치텍스트) 보존
     wb = load_workbook(io.BytesIO(template_bytes), rich_text=True)
 
-    font_name, font_size = get_font_info(template_bytes)
+    font_name, _ = get_font_info(template_bytes)
+    font_size = 12  # 활동계획 글자 크기 (포인트)
     normal_font = InlineFont(rFont=font_name, sz=font_size)
     red_font = InlineFont(rFont=font_name, sz=font_size, color='FFFF0000')
 
