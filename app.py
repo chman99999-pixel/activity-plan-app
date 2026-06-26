@@ -266,10 +266,11 @@ def main_app():
                 )
             with cols[8]:
                 if st.session_state.get(f"pm_shuttle_{user}", True):
-                    st.text_input(
-                        "오후송영시간", value="16:00~16:30 송영",
-                        key=f"pm_shuttle_time_{user}",
-                        label_visibility="collapsed",
+                    # 오후송영시간은 하원시간 기준 자동 (하원 17시 → 17:00~17:30 송영)
+                    _dep = st.session_state.get(f"departure_{user}", 17)
+                    st.markdown(
+                        f"<div style='padding-top:8px'>{_dep:02d}:00~{_dep:02d}:30 송영</div>",
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.empty()
@@ -323,9 +324,9 @@ def main_app():
             has_am = st.session_state.get(f"am_shuttle_{user}", False)
             am_time = st.session_state.get(f"am_shuttle_time_{user}", "08:30~09:00 송영")
             has_pm = st.session_state.get(f"pm_shuttle_{user}", False)
-            pm_time = st.session_state.get(f"pm_shuttle_time_{user}", "16:00~16:30 송영")
             svc_hours = st.session_state.get(f"service_hours_{user}", 132)
             departure = st.session_state.get(f"departure_{user}", 17)
+            pm_time = f"{departure:02d}:00~{departure:02d}:30 송영"  # 오후송영은 하원시간 기준 자동
             user_config[user] = {
                 "오전송영": has_am,
                 "오전송영시간": am_time,
