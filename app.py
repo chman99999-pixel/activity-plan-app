@@ -19,6 +19,12 @@ st.set_page_config(
 )
 
 
+# 하원시간 변경 시 오후송영시간을 자동 동기화 (수정 가능하되 기본은 하원시간 기준)
+def _sync_pm_shuttle(user):
+    dep = st.session_state.get(f"departure_{user}", 17)
+    st.session_state[f"pm_shuttle_time_{user}"] = f"{dep:02d}:00~{dep:02d}:30 송영"
+
+
 # ══════════════════════════════════════════════════════════
 # 스플래시 로딩 화면
 # ══════════════════════════════════════════════════════════
@@ -243,6 +249,7 @@ def main_app():
                     index=2,
                     format_func=lambda x: f"오후 {x}시",
                     key=f"departure_{user}",
+                    on_change=_sync_pm_shuttle, args=(user,),
                     label_visibility="collapsed",
                 )
             with cols[4]:
@@ -266,11 +273,14 @@ def main_app():
                 )
             with cols[8]:
                 if st.session_state.get(f"pm_shuttle_{user}", True):
-                    # 오후송영시간은 하원시간 기준 자동 (하원 17시 → 17:00~17:30 송영)
-                    _dep = st.session_state.get(f"departure_{user}", 17)
-                    st.markdown(
-                        f"<div style='padding-top:8px'>{_dep:02d}:00~{_dep:02d}:30 송영</div>",
-                        unsafe_allow_html=True,
+                    # 오후송영시간: 하원시간 기준 기본값, 수정 가능 (하원 변경 시 자동 동기화)
+                    if f"pm_shuttle_time_{user}" not in st.session_state:
+                        _dep = st.session_state.get(f"departure_{user}", 17)
+                        st.session_state[f"pm_shuttle_time_{user}"] = f"{_dep:02d}:00~{_dep:02d}:30 송영"
+                    st.text_input(
+                        "오후송영시간",
+                        key=f"pm_shuttle_time_{user}",
+                        label_visibility="collapsed",
                     )
                 else:
                     st.empty()
@@ -326,7 +336,9 @@ def main_app():
             has_pm = st.session_state.get(f"pm_shuttle_{user}", False)
             svc_hours = st.session_state.get(f"service_hours_{user}", 132)
             departure = st.session_state.get(f"departure_{user}", 17)
-            pm_time = f"{departure:02d}:00~{departure:02d}:30 송영"  # 오후송영은 하원시간 기준 자동
+            pm_time = st.session_state.get(
+                f"pm_shuttle_time_{user}", f"{departure:02d}:00~{departure:02d}:30 송영"
+            )
             user_config[user] = {
                 "오전송영": has_am,
                 "오전송영시간": am_time,
