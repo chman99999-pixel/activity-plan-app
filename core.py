@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
-from openpyxl.styles import Font, Border, Side
+from openpyxl.styles import Font, Border, Side, Alignment
 from copy import copy
 
 # ── openpyxl 호환성 패치 ─────────────────────────────────────────────
@@ -391,8 +391,12 @@ def fill_sheets(template_bytes: bytes, activities: dict, holidays: set,
         # (3,4) 수급자(성명)
         ws.cell(row=3, column=4).value = user_name
 
-        # (4,4) 서비스 제공자(제공인력)
-        ws.cell(row=4, column=4).value = provider
+        # (4,4) 서비스 제공자: D4=(제공인력) 라벨 유지, E4=제공인력 이름
+        # (기존엔 이름을 D4에 써서 템플릿의 '(제공인력)' 라벨을 덮어쓰던 문제 수정)
+        ws.cell(row=4, column=4).value = '(제공인력)'
+        e4 = ws.cell(row=4, column=5)
+        e4.value = provider
+        e4.alignment = Alignment(horizontal='center', vertical=e4.alignment.vertical or 'center')
 
         # (5,4) 수급시간: ■/□ 표시
         if 수급시간 == 176:
